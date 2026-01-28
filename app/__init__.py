@@ -6,6 +6,7 @@ from flask_cors import CORS
 
 from app.config import get_config
 from app.db import init_mongo
+from app.middlewares.compression import init_compression
 from app.middlewares.error_handler import init_error_handlers
 from app.middlewares.logging import init_request_logging
 from app.middlewares.rate_limit import init_rate_limiting
@@ -26,6 +27,9 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config["CFG"] = cfg
 
+    # Performance: skip JSON key sorting for faster serialization
+    app.config["JSON_SORT_KEYS"] = False
+
     CORS(
         app,
         origins=cfg.CORS_ORIGINS,
@@ -40,6 +44,7 @@ def create_app() -> Flask:
     init_security_headers(app)
     init_rate_limiting(app)
     init_request_logging(app)
+    init_compression(app)
     init_error_handlers(app)
 
     init_mongo(app)
@@ -49,3 +54,4 @@ def create_app() -> Flask:
     app.register_blueprint(reports_bp, url_prefix="/api/v1/reports")
 
     return app
+

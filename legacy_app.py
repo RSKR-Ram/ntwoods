@@ -1016,7 +1016,17 @@ def create_app() -> Flask:
 
     @app.get("/health")
     def health():
-        return ok({"status": "ok"})[0]
+        from cache_layer import cache_stats
+        from db import get_pool_stats
+
+        pool = get_pool_stats()
+        cache = cache_stats()
+
+        return ok({
+            "status": "ok",
+            "db_pool": pool,
+            "cache": cache,
+        })[0]
 
     @app.get("/")
     def index():

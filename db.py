@@ -159,15 +159,17 @@ def _normalize_database_url(database_url: str) -> str:
 
 def _pool_kwargs(database_url: str) -> dict:
     """
-    QueuePool tuning (Postgres/MySQL/etc). Keep defaults conservative to avoid
-    exhausting Supabase connection limits.
+    QueuePool tuning (Postgres/MySQL/etc). Production-optimized defaults to handle
+    high concurrency while respecting cloud DB connection limits.
     """
 
     if database_url.startswith("sqlite"):
         return {}
 
-    pool_size = max(1, _env_int("DB_POOL_SIZE", 5))
-    max_overflow = max(0, _env_int("DB_MAX_OVERFLOW", 5))
+    # Production defaults: 10 base + 20 overflow = 30 max connections per worker.
+    # With 2 gunicorn workers, that's 60 total connections (within most cloud DB limits).
+    pool_size = max(1, _env_int("DB_POOL_SIZE", 10))
+    max_overflow = max(0, _env_int("DB_MAX_OVERFLOW", 20))
     pool_timeout = max(1, _env_int("DB_POOL_TIMEOUT", 30))
     pool_recycle = max(0, _env_int("DB_POOL_RECYCLE", 1800))
     use_lifo = _env_bool("DB_POOL_USE_LIFO", True)
@@ -271,3 +273,44 @@ def engine_for_owner(owner_user_id: str):
         return engine
     idx = pick_shard_index(str(owner_user_id or ""), len(shard_engines))
     return shard_engines[idx]
+
+
+def get_readonly_session():
+    """
+    Returns a session optimized for read-only queries.
+    Uses execution options that hint the database this is a read operation.
+    """
+    from sqlalchemy.orm import Session
+
+    if engine is None:
+        raise RuntimeError("Engine not initialized. Call init_engine() first.")
+
+    return Session(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+
+def get_pool_stats() -> dict:
+    """
+    Returns connection pool statistics for health monitoring.
+    Useful for debugging connection exhaustion issues and monitoring.
+    """
+    if engine is None:
+        return {"status": "not_initialized"}
+
+    pool = engine.pool
+    try:
+        return {
+            "status": "ok",
+            "pool_size": pool.size(),
+            "checked_in": pool.checkedin(),
+            "checked_out": pool.checkedout(),
+            "overflow": pool.overflow(),
+            "invalid": pool.invalidatedcount() if hasattr(pool, "invalidatedcount") else 0,
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
