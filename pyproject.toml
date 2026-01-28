@@ -1,0 +1,33 @@
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+extend-exclude = "(^|/)(\\.venv|uploads|actions|services)/|(^|/)legacy_app\\.py$|(^|/)auth\\.py$|(^|/)cache_layer\\.py$|(^|/)config\\.py$|(^|/)db\\.py$|(^|/)models\\.py$|(^|/)pii\\.py$|(^|/)schema\\.py$|(^|/)sharding\\.py$|(^|/)sla\\.py$|(^|/)utils\\.py$"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+  ".venv",
+  "uploads",
+  "hrms.db",
+  "actions",
+  "services",
+  "legacy_app.py",
+  "auth.py",
+  "cache_layer.py",
+  "config.py",
+  "db.py",
+  "models.py",
+  "pii.py",
+  "schema.py",
+  "sharding.py",
+  "sla.py",
+  "utils.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

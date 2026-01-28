@@ -1,0 +1,11 @@
+Flask==3.0.2
+flask-cors==4.0.0
+python-dotenv==1.0.1
+gunicorn==21.2.0
+SQLAlchemy==2.0.45
+psycopg[binary]==3.3.2
+cachetools==5.3.3
+python-dateutil==2.9.0.post0
+requests==2.31.0
+google-auth==2.29.0
+tzdata==2024.1

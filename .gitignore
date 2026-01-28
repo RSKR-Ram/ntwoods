@@ -1,0 +1,26 @@
+# Env files (never commit)
+.env
+.env.*
+!.env.example
+backend-flask/.env
+backend-flask/.env.*
+!backend-flask/.env.example
+
+# Node
+node_modules/
+dist/
+
+# Python
+.venv/
+.pytest_cache/
+__pycache__/
+uploads/
+*.db
+hrms.db
+backend-flask/.venv/
+backend-flask/__pycache__/
+backend-flask/.pytest_cache/
+backend-flask/uploads/
+backend-flask/hrms.db
+**/__pycache__/
+*.pyc
