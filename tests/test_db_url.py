@@ -28,12 +28,14 @@ def test_normalize_database_url_strips_leading_key_prefix_before_url():
     assert normalized.endswith("@aws.pooler.supabase.com:6543/postgres")
 
 
-def test_should_disable_prepared_statements_for_supabase_pooler_url():
+def test_should_disable_prepared_statements_for_supabase_pooler_url(monkeypatch):
+    monkeypatch.delenv("DB_DISABLE_PREPARED_STATEMENTS", raising=False)
     url = "postgresql+psycopg://postgres.myref:pass@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
     assert _should_disable_prepared_statements(url) is True
 
 
-def test_should_not_disable_prepared_statements_for_direct_supabase_url():
+def test_should_not_disable_prepared_statements_for_direct_supabase_url(monkeypatch):
+    monkeypatch.delenv("DB_DISABLE_PREPARED_STATEMENTS", raising=False)
     url = "postgresql+psycopg://postgres:pass@db.myref.supabase.co:5432/postgres"
     assert _should_disable_prepared_statements(url) is False
 

@@ -1,106 +1,265 @@
-# HRMS Backend (Flask + Supabase Postgres)
+# HRMS Backend (Flask + Supabase/Postgres)
 
-Flask backend for the HRMS React frontend (`HRMS-NTWOODS`) using Supabase Postgres (via SQLAlchemy).
+Production-ready Flask API with background task processing, caching, and comprehensive deployment options.
 
-## Quickstart (local)
+## Quick Start (Local Development)
 
 ```bash
-cd backend-flask
+cd ntwoods
 python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt -r requirements-dev.txt
-copy .env.example .env
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
+
+pip install -r requirements.txt
+copy .env.example .env  # Edit with your values
+
+# Run Flask dev server
 python legacy_app.py
-```
 
-Backend runs on `http://127.0.0.1:5002` (see `PORT`).
-
-## API
-
-- `GET /health`
-- `POST /api` (single action router; matches the frontend client)
-  - Body: `{ "action": "ACTION_NAME", "token": "<sessionToken|null>", "data": { ... } }`
-- `GET /files/<fileId>?token=<sessionToken>`
-- REST endpoints (preferred for new modules)
-  - Auth: `Authorization: Bearer <sessionToken>` (or `X-Session-Token`)
-  - Employee profile (enterprise): `GET /api/employees/<employeeId>/profile`
-  - Employee docs: `GET /api/employees/<employeeId>/docs`, `POST /api/docs/upload`, `GET /api/docs/download/<docId>`
-  - Role history: `POST /api/employees/<employeeId>/role-change`
-  - Aadhaar+DOB duplicate check: `POST /api/employees/check-duplicate`
-  - Exit workflows: `POST /api/exit/*` (see below)
-  - Training tests: `GET /api/training/modules`, `POST /api/training/*`, `GET /api/training/video/stream/<moduleId>`
-
-Note: many legacy endpoints return HTTP 200 even on errors; always check `{ ok: true|false }` in the JSON.
-
-## Schema migrations
-
-This codebase does not use Alembic yet.
-
-- Tables are created via `Base.metadata.create_all()` at startup.
-- Incremental (idempotent) schema evolution + backfills are handled in `schema.ensure_schema()` (called at startup).
-
-Production recommendation: deploy backend first, let it apply schema changes, then deploy frontend.
-
-## Employee documents (enterprise)
-
-- Upload: `POST /api/docs/upload` (multipart: `employeeId`, `docType`, `visibility`, `file`)
-- Secure download: `GET /api/docs/download/<docId>` (permission check, then stream/redirect)
-- Storage modes:
-  - `FILE_STORAGE_MODE=local` (dev): bytes stored in `UPLOAD_DIR`
-  - `FILE_STORAGE_MODE=gas` (prod option): uploads forwarded to Google Apps Script (Drive); download endpoint enforces auth then redirects
-
-## Exit workflows (strict server-side rules)
-
-Endpoints:
-- `POST /api/exit/start-notice` `{ employeeId, noticeDays }` → SELF exit case
-- `POST /api/exit/mark-absconded` `{ employeeId, absentSince, remark }` → ABSCONDED exit case
-- `POST /api/exit/terminate-init` `{ employeeId, lastWorkingDay, remark }` → TERMINATED exit case
-- `POST /api/exit/settlement-clear` `{ exitId, settlementDocId }`
-- `POST /api/exit/attach-termination-letter` `{ exitId, terminationLetterDocId }`
-- `POST /api/exit/complete` `{ exitId }`
-
-Config (settings table keys):
-- `EXIT_NOTICE_DAYS_DEFAULT` (default `30`)
-- `EXIT_ABSCONDED_REQUIRE_SETTLEMENT` (default `false`)
-
-## Training tests + video streaming
-
-- Admin config: `GET /api/training/admin/questions/<moduleId>`, `POST /api/training/admin/save-questions`
-- Attempts: `POST /api/training/start-test`, `POST /api/training/submit-test`
-- Video: `GET /api/training/video/stream/<moduleId>?index=0` (proxy/stream; best-effort URL hiding)
-
-## Audit logs + correlation IDs
-
-- Every request gets an `X-Request-ID` response header.
-- Critical actions append to `audit_log` with `correlation_id` to trace end-to-end activity.
-
-## Supabase setup
-
-1) Create a Supabase project.
-2) Copy the Postgres connection string (prefer the “Connection pooling” URL when available).
-3) Set `DATABASE_URL` in `.env` (include `?sslmode=require`).
-
-Important: tune `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, and Gunicorn `WEB_CONCURRENCY` to stay within Supabase connection limits.
-
-## Production env (minimum)
-
-- `APP_ENV=production`
-- `DATABASE_URL=...`
-- `PEPPER=...` (long random string)
-- `SERVER_SALT=...` (optional; defaults to `PEPPER`)
-- `GOOGLE_CLIENT_ID=...`
-- `ALLOWED_ORIGINS=https://your-frontend-domain` (comma-separated; include GitHub Pages origin if used)
-- `MAX_EMPLOYEE_DOC_UPLOAD_MB=20` (optional)
-
-## Deploy (Gunicorn)
-
-This repo includes:
-- `Procfile` (process entry)
-- `gunicorn.conf.py` (workers/threads via env vars)
-- `wsgi.py` (Gunicorn import target)
-
-Start command:
-
-```bash
+# Or with Gunicorn
 gunicorn wsgi:app -c gunicorn.conf.py
 ```
+
+Backend runs on `http://127.0.0.1:5002`
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `APP_ENV` | No | `development` | `development`, `production`, `testing` |
+| `DATABASE_URL` | Yes | `sqlite:///./hrms.db` | Postgres URL for production |
+| `REDIS_URL` | No | - | Redis URL for caching + Celery |
+| `PEPPER` | Yes | - | Long random string for hashing |
+| `JWT_SECRET` | Yes (prod) | `dev-secret` | JWT signing key |
+| `GOOGLE_CLIENT_ID` | Yes (prod) | - | Google OAuth client ID |
+| `CORS_ORIGINS` | No | `*` | Comma-separated allowed origins |
+| `LOG_LEVEL` | No | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `RATE_LIMIT_DEFAULT` | No | `300 per minute` | Default rate limit |
+| `SENTRY_DSN` | No | - | Sentry error tracking DSN |
+| `WEB_CONCURRENCY` | No | `2` | Gunicorn workers |
+| `CELERY_CONCURRENCY` | No | `4` | Celery worker concurrency |
+
+---
+
+## API Endpoints
+
+### Health & Status
+- `GET /health` - Lightweight health check (always 200 if process running)
+- `GET /ready` - Readiness check (DB + Redis connectivity)
+- `GET /version` - App version info
+
+### Background Jobs
+- `POST /api/v1/jobs/example` - Enqueue example task
+- `POST /api/v1/jobs/notify` - Enqueue notification
+- `GET /api/v1/jobs/<job_id>` - Get job status
+- `DELETE /api/v1/jobs/<job_id>` - Cancel job
+
+### Core API
+- `POST /api` - Single action router (legacy)
+- `GET /files/<fileId>?token=` - File download
+
+See `openapi.yaml` for full API documentation.
+
+---
+
+## Running with Celery (Background Tasks)
+
+```bash
+# Terminal 1: Run Flask
+gunicorn wsgi:app -c gunicorn.conf.py
+
+# Terminal 2: Run Celery worker
+celery -A app.tasks.celery_app worker --loglevel=INFO
+
+# Test a job
+curl -X POST http://localhost:5002/api/v1/jobs/example \
+  -H "Content-Type: application/json" \
+  -d '{"duration_seconds": 3}'
+```
+
+---
+
+## Deploy to Render
+
+### Option 1: Using render.yaml (Blueprint)
+
+1. Push to GitHub
+2. Go to [Render Dashboard](https://dashboard.render.com)
+3. Click **New → Blueprint**
+4. Connect your repo (auto-detects `render.yaml`)
+5. Set environment secrets in dashboard:
+   - `PEPPER`
+   - `JWT_SECRET`
+   - `GOOGLE_CLIENT_ID`
+   - `CORS_ORIGINS`
+
+### Option 2: Manual Setup
+
+**Web Service:**
+- Build: `pip install -r requirements.txt`
+- Start: `gunicorn wsgi:app -c gunicorn.conf.py`
+- Health check: `/health`
+
+**Background Worker:**
+- Start: `celery -A app.tasks.celery_app worker --loglevel=INFO`
+
+**Services needed:**
+- Postgres database
+- Redis (for Celery + caching)
+
+---
+
+## Deploy to VPS (Ubuntu)
+
+### Option 1: Docker Compose (Recommended)
+
+```bash
+# Clone repo
+git clone <repo-url> /var/www/hrms
+cd /var/www/hrms
+
+# Edit environment variables
+cp ntwoods/.env.example ntwoods/.env
+nano ntwoods/.env  # Set production values
+
+# Build and run
+docker compose up -d
+
+# View logs
+docker compose logs -f backend worker
+```
+
+### Option 2: Manual Setup
+
+#### 1. Install dependencies
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y python3.12 python3.12-venv nginx redis-server postgresql
+
+# Setup app
+cd /var/www/hrms-api
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Create .env
+cp .env.example .env
+nano .env
+```
+
+#### 2. Setup systemd services
+
+```bash
+# Copy service files
+sudo cp systemd/gunicorn.service /etc/systemd/system/
+sudo cp systemd/celery.service /etc/systemd/system/
+
+# Enable and start
+sudo systemctl daemon-reload
+sudo systemctl enable gunicorn celery
+sudo systemctl start gunicorn celery
+```
+
+#### 3. Configure Nginx
+
+```bash
+sudo cp nginx/app.conf /etc/nginx/sites-available/hrms-api
+sudo ln -s /etc/nginx/sites-available/hrms-api /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### 4. SSL with Certbot
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d api.yourdomain.com
+```
+
+#### 5. Basic Hardening
+
+```bash
+# Firewall
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+
+# Fail2ban
+sudo apt install fail2ban
+sudo systemctl enable fail2ban
+```
+
+---
+
+## Testing
+
+```bash
+# Install dev dependencies
+pip install -r requirements-dev.txt
+
+# Run all tests
+pytest tests/ -v
+
+# Run specific test
+pytest tests/test_health.py -v
+
+# With coverage
+pytest tests/ --cov=. --cov-report=html
+```
+
+---
+
+## Project Structure
+
+```
+ntwoods/
+├── app/
+│   ├── __init__.py          # App factory
+│   ├── config.py             # Environment config
+│   ├── db.py                 # MongoDB connection
+│   ├── middlewares/          # Request middleware
+│   │   ├── compression.py
+│   │   ├── error_handler.py
+│   │   ├── logging.py
+│   │   ├── rate_limit.py
+│   │   ├── request_id.py
+│   │   └── security_headers.py
+│   ├── routes/               # API blueprints
+│   │   ├── auth.py
+│   │   ├── core.py
+│   │   ├── jobs.py
+│   │   └── reports.py
+│   ├── tasks/                # Celery tasks
+│   │   ├── __init__.py
+│   │   └── example_task.py
+│   └── utils/
+├── nginx/app.conf            # Nginx config
+├── systemd/                  # systemd units
+├── tests/                    # pytest tests
+├── gunicorn.conf.py
+├── render.yaml               # Render Blueprint
+├── requirements.txt
+└── wsgi.py
+```
+
+---
+
+## Troubleshooting
+
+**Connection timeout to database:**
+- Check `DATABASE_URL` format
+- Ensure DB allows connections from your IP
+- For Supabase, use the pooler URL (port 6543)
+
+**Celery not processing tasks:**
+- Verify `REDIS_URL` is correct
+- Check Redis is running: `redis-cli ping`
+- View worker logs: `celery -A app.tasks.celery_app worker --loglevel=DEBUG`
+
+**Rate limiting issues:**
+- Adjust `RATE_LIMIT_DEFAULT` and `RATE_LIMIT_GLOBAL`
+- Check `X-Forwarded-For` header is set by reverse proxy

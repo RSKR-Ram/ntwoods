@@ -103,7 +103,7 @@ STATIC_RBAC_PERMISSIONS: dict[str, list[str]] = {
     "TEST_MASTER_UPSERT": ["ADMIN"],
     "CANDIDATE_REQUIRED_TESTS_SET": ["ADMIN", "HR"],
     "CANDIDATE_TESTS_GET": ["ADMIN", "EA", "HR", "OWNER", "ACCOUNTS", "MIS", "DEO"],
-    "CANDIDATE_TEST_SUBMIT": ["ADMIN", "EA", "ACCOUNTS", "MIS", "DEO"],
+    "CANDIDATE_TEST_SUBMIT": ["ADMIN", "EA", "ACCOUNTS", "MIS", "DEO", "HR"],
     "CANDIDATE_TEST_REVIEW": ["ADMIN", "HR"],
     "CANDIDATE_TEST_ASSIGN": ["ADMIN"],
     "TESTS_QUEUE_LIST": ["ADMIN", "EA", "HR", "ACCOUNTS", "MIS", "DEO"],
@@ -147,6 +147,10 @@ STATIC_RBAC_PERMISSIONS: dict[str, list[str]] = {
     "EXIT_SETTLEMENT_CLEAR": ["ADMIN", "HR"],
     "EXIT_ATTACH_TERMINATION_LETTER": ["ADMIN", "HR"],
     "EXIT_COMPLETE": ["ADMIN", "HR"],
+    "EXIT_TASKS_GET": ["ADMIN", "HR", "MIS", "ACCOUNTS", "EMPLOYEE"],
+    "EXIT_TASK_UPDATE": ["ADMIN", "HR", "MIS", "ACCOUNTS"],
+    "EXIT_CLEARANCE_QUEUE": ["ADMIN", "HR", "MIS", "ACCOUNTS"],
+    "EXIT_CLEARANCE_GET": ["ADMIN", "HR", "MIS", "ACCOUNTS"],
     # Training tests + secure video streaming
     "TRAINING_MODULES_GET": ["ADMIN", "EA", "HR", "OWNER", "EMPLOYEE"],
     "TRAINING_ADMIN_GET_QUESTIONS": ["ADMIN"],
@@ -192,6 +196,14 @@ STATIC_RBAC_PERMISSIONS: dict[str, list[str]] = {
     "SLA_COMPLIANCE_METRICS": ["ADMIN", "HR"],
     "RECENT_ACTIVITY": ["ADMIN", "HR"],
     "EXPORT_ANALYTICS_REPORT": ["ADMIN", "HR"],
+    # Public Apply (HR review of applications from public form)
+    "PUBLIC_APPLY_JOB_TILES": ["ADMIN", "HR"],
+    "PUBLIC_APPLY_LIST": ["ADMIN", "HR"],
+    "PUBLIC_APPLY_GET": ["ADMIN", "HR"],
+    "PUBLIC_APPLY_APPROVE": ["ADMIN", "HR"],
+    "PUBLIC_APPLY_REJECT": ["ADMIN", "HR"],
+    "PUBLIC_APPLY_AUDIT_LOG": ["ADMIN", "HR"],
+    "PUBLIC_APPLY_REQUIREMENTS": ["ADMIN", "HR"],
 }
 
 

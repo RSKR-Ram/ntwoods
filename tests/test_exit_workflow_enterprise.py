@@ -74,6 +74,31 @@ def _upload_doc(client, *, token: str, employee_id: str, doc_type: str) -> str:
     return body["data"]["docId"]
 
 
+def _set_exit_task(client, *, token: str, exit_id: str, task_key: str, status: str = "DONE") -> None:
+    res = client.post(
+        "/api/exit/task-update",
+        json={"exitId": exit_id, "taskKey": task_key, "status": status, "note": "test"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["ok"] is True
+    assert body["data"]["task"]["taskKey"] == task_key
+
+
+def _complete_required_clearance_tasks(client, *, token: str, exit_id: str) -> None:
+    # FINANCE_SETTLEMENT and HR_TERMINATION_LETTER are auto-marked by their respective endpoints (if present).
+    for k in [
+        "HR_EXIT_INTERVIEW",
+        "HR_HANDOVER",
+        "IT_ASSET_RETURN",
+        "IT_ACCESS_REVOKE",
+        "FINANCE_CLEARANCE",
+        "ADMIN_ID_CARD_RETURN",
+    ]:
+        _set_exit_task(client, token=token, exit_id=exit_id, task_key=k, status="DONE")
+
+
 def test_self_exit_notice_and_settlement_rules(app_client):
     app, client = app_client
 
@@ -128,6 +153,8 @@ def test_self_exit_notice_and_settlement_rules(app_client):
     assert res.status_code == 200
     body = res.get_json()
     assert body["ok"] is True
+
+    _complete_required_clearance_tasks(client, token=token, exit_id=exit_id)
 
     res = client.post("/api/exit/complete", json={"exitId": exit_id}, headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
@@ -189,9 +216,10 @@ def test_terminated_exit_requires_letter(app_client):
     assert res.status_code == 200
     assert res.get_json()["ok"] is True
 
+    _complete_required_clearance_tasks(client, token=token, exit_id=exit_id)
+
     res = client.post("/api/exit/complete", json={"exitId": exit_id}, headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
     body = res.get_json()
     assert body["ok"] is True
     assert body["data"]["exitCase"]["state"] == "EXITED"
-

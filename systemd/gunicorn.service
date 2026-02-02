@@ -1,0 +1,22 @@
+[Unit]
+Description=HRMS Gunicorn Daemon
+Requires=gunicorn.socket
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+RuntimeDirectory=gunicorn
+WorkingDirectory=/var/www/hrms-api
+EnvironmentFile=/var/www/hrms-api/.env
+ExecStart=/var/www/hrms-api/.venv/bin/gunicorn wsgi:app -c gunicorn.conf.py
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=30
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

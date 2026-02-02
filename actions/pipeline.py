@@ -2883,7 +2883,9 @@ def _create_employee_from_candidate(db, candidate_id: str, requirement_id: str, 
             joinedAt=joined_at,
             probationStartAt=cand.probationStartAt or "",
             probationEndsAt=cand.probationEndsAt or "",
-            status="ACTIVE",
+            # Employee is created at PROBATION_SET (candidate already in probation),
+            # so reflect that on the employee record to prevent premature exit flows.
+            status="PROBATION" if str(getattr(cand, "status", "") or "").upper().strip() == "PROBATION" else "ACTIVE",
             exitAt="",
             exit_date="",
             rejoin_date="",
@@ -3121,6 +3123,8 @@ def probation_complete(data, auth: AuthContext | None, db, cfg):
         emp_row.joinedAt = cand.joinedAt or (emp_row.joinedAt or "")
         emp_row.probationStartAt = cand.probationStartAt or (emp_row.probationStartAt or "")
         emp_row.probationEndsAt = cand.probationEndsAt or (emp_row.probationEndsAt or "")
+        emp_row.status = "ACTIVE"
+        emp_row.is_active = True
 
         # SessionLocal has autoflush=False; ensure the audit row is visible before rebuilding timeline.
         db.flush()
@@ -3194,7 +3198,7 @@ def probation_decide(data, auth: AuthContext | None, db, cfg):
                 )
                 if not active_exit:
                     exit_terminate_init(
-                        {"employeeId": employee_id, "lastWorkingDay": now, "remark": f"Probation reject: {remark}"},
+                        {"employeeId": employee_id, "lastWorkingDay": now, "remark": f"Probation reject: {remark}", "_bypassProbationGuard": True},
                         auth,
                         db,
                         cfg,

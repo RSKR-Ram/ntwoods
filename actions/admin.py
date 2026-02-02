@@ -5,7 +5,7 @@ import re
 from sqlalchemy import func, select
 
 from actions.helpers import append_audit, next_prefixed_id
-from auth import permissions_for_role
+from auth import STATIC_RBAC_PERMISSIONS, permissions_for_role
 from cache_layer import cache_invalidate_prefix
 from models import AuditLog, JobTemplate, Permission, Role, Setting, User
 from utils import ApiError, AuthContext, iso_utc_now, normalize_role
@@ -296,6 +296,22 @@ def permissions_list(data, auth: AuthContext | None, db, cfg):
                 "updatedBy": p.updatedBy or "",
             }
         )
+
+    db_map = {f"{str(p.permType or '').upper().strip()}:{str(p.permKey or '').upper().strip()}": True for p in rows}
+
+    # Merge Static Defaults if missing from DB
+    for action, roles in (STATIC_RBAC_PERMISSIONS or {}).items():
+        key = f"ACTION:{str(action).upper().strip()}"
+        if key not in db_map:
+            roles_csv = ",".join([str(r).upper().strip() for r in roles if r])
+            items.append({
+                "permType": "ACTION",
+                "permKey": action,
+                "rolesCsv": roles_csv,
+                "enabled": True,
+                "updatedAt": "",
+                "updatedBy": "SYSTEM",
+            })
 
     items.sort(key=lambda x: f"{x['permType']}:{x['permKey']}")
     return {"items": items}

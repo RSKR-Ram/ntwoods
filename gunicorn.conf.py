@@ -26,9 +26,10 @@ worker_class = os.getenv("GUNICORN_WORKER_CLASS", "gthread").strip() or "gthread
 workers = max(1, _env_int("WEB_CONCURRENCY", 2))
 threads = max(1, _env_int("PYTHON_THREADS", 4))
 
-# Preload app to share DB connection pools across workers (saves memory).
-# Disable if using code reload in development.
-preload_app = _env_bool("GUNICORN_PRELOAD_APP", True)
+# Preload app: shares DB connection pools across workers (saves memory).
+# DISABLED by default: if DB connection fails at startup, the entire deploy fails.
+# Enable with GUNICORN_PRELOAD_APP=1 only when you're confident DB is reachable.
+preload_app = _env_bool("GUNICORN_PRELOAD_APP", False)
 
 timeout = max(10, _env_int("GUNICORN_TIMEOUT", 120))
 graceful_timeout = max(5, _env_int("GUNICORN_GRACEFUL_TIMEOUT", 30))

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
@@ -16,6 +18,15 @@ from app.routes.auth import auth_bp
 from app.routes.core import core_bp
 from app.routes.reports import reports_bp
 from app.utils.logging import setup_logging
+
+# Celery/jobs are optional - graceful degradation when not installed
+try:
+    from app.routes.jobs import jobs_bp
+    CELERY_AVAILABLE = True
+except ImportError:
+    jobs_bp = None
+    CELERY_AVAILABLE = False
+    logging.getLogger(__name__).warning("Celery not installed, /api/v1/jobs/* endpoints disabled")
 
 
 def create_app() -> Flask:
@@ -52,6 +63,9 @@ def create_app() -> Flask:
     app.register_blueprint(core_bp)
     app.register_blueprint(auth_bp, url_prefix="/api/v1/auth")
     app.register_blueprint(reports_bp, url_prefix="/api/v1/reports")
+    
+    if CELERY_AVAILABLE and jobs_bp:
+        app.register_blueprint(jobs_bp, url_prefix="/api/v1/jobs")
 
     return app
 

@@ -1,0 +1,109 @@
+# Render Blueprint for HRMS Backend
+# Deploy: Connect repo to Render, it auto-detects this file
+
+services:
+  # ----------------------------------------
+  # Web Service (Flask + Gunicorn)
+  # ----------------------------------------
+  - type: web
+    name: hrms-api
+    runtime: python
+    region: singapore  # Change as needed
+    plan: free  # or starter, standard, etc.
+    
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app -c gunicorn.conf.py
+    
+    healthCheckPath: /health
+    
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: GUNICORN_TIMEOUT
+        value: "120"
+      
+      # Database (from Render Postgres)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hrms-db
+          property: connectionString
+      
+      # Redis (from Render Redis)
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: hrms-redis
+          property: connectionString
+      
+      # Security (set these in Render dashboard)
+      - key: PEPPER
+        sync: false  # Manual secret
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      
+      # CORS
+      - key: CORS_ORIGINS
+        sync: false  # Set to your frontend URL
+      
+      # Optional: Sentry
+      - key: SENTRY_DSN
+        sync: false
+
+  # ----------------------------------------
+  # Background Worker (Celery)
+  # ----------------------------------------
+  - type: worker
+    name: hrms-worker
+    runtime: python
+    region: singapore
+    plan: free
+    
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A app.tasks.celery_app worker --loglevel=INFO --concurrency=2
+    
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.12"
+      
+      # Database
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hrms-db
+          property: connectionString
+      
+      # Redis
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: hrms-redis
+          property: connectionString
+      
+      # Secrets (same as web)
+      - key: PEPPER
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
+# ----------------------------------------
+# Databases
+# ----------------------------------------
+databases:
+  - name: hrms-db
+    databaseName: hrms
+    plan: free  # or starter for production
+    region: singapore
+
+# ----------------------------------------
+# Redis (for caching + Celery broker)
+# ----------------------------------------
+# Note: Free tier Redis available via Render dashboard
+# Add manually: Dashboard > New > Redis
+# Then link the REDIS_URL env var above

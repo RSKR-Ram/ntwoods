@@ -207,6 +207,10 @@ def init_engine(database_url: str):
             # prepare_threshold=None disables them entirely (required for PgBouncer
             # transaction pooling / Supabase pooler endpoints).
             connect_args["prepare_threshold"] = None
+        # Connection timeout: fail fast instead of blocking for minutes.
+        # Default 10s is reasonable for cloud DBs; increase if network is slow.
+        connect_timeout = _env_int("DB_CONNECT_TIMEOUT", 10)
+        connect_args["connect_timeout"] = connect_timeout
 
     pool_pre_ping = _env_bool("DB_POOL_PRE_PING", True)
     try:

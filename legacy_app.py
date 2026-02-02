@@ -366,6 +366,35 @@ def rest_exit_complete():
     return _rest_handle("EXIT_COMPLETE", {"exitId": body.get("exitId") or ""})
 
 
+@rest_api.get("/api/exit/tasks/<exit_id>")
+def rest_exit_tasks_get(exit_id: str):
+    return _rest_handle("EXIT_TASKS_GET", {"exitId": exit_id})
+
+
+@rest_api.post("/api/exit/task-update")
+def rest_exit_task_update():
+    body = request.get_json(silent=True) or {}
+    return _rest_handle(
+        "EXIT_TASK_UPDATE",
+        {
+            "exitId": body.get("exitId") or "",
+            "taskKey": body.get("taskKey") or "",
+            "status": body.get("status") or "",
+            "note": body.get("note") or "",
+            "docId": body.get("docId") or "",
+        },
+    )
+
+@rest_api.get("/api/exit/clearance/queue")
+def rest_exit_clearance_queue():
+    return _rest_handle("EXIT_CLEARANCE_QUEUE", {})
+
+
+@rest_api.get("/api/exit/clearance/<exit_id>")
+def rest_exit_clearance_get(exit_id: str):
+    return _rest_handle("EXIT_CLEARANCE_GET", {"exitId": exit_id})
+
+
 @rest_api.get("/api/training/modules")
 def rest_training_modules_get():
     return _rest_handle("TRAINING_MODULES_GET", {})
@@ -778,6 +807,7 @@ def _seed_roles_and_permissions(db):
         ("UI", "PORTAL_REJECTION_LOG", "EA,HR,ADMIN", True),
         ("UI", "PORTAL_ANALYTICS", "HR,ADMIN", True),
         ("UI", "PORTAL_EMPLOYEE_PROFILE", "EA,HR,OWNER,ADMIN", True),
+        ("UI", "PORTAL_EXIT_CLEARANCE", "HR,ADMIN,MIS,ACCOUNTS", True),
         ("UI", "PORTAL_FAIL_CANDIDATES", "HR,ADMIN", True),
         ("UI", "PORTAL_TESTS", "HR,EA,ADMIN,ACCOUNTS,MIS,DEO", True),
         ("UI", "PORTAL_ADMIN_SLA", "ADMIN", True),
@@ -983,6 +1013,18 @@ def create_app() -> Flask:
 
     CORS(app, origins=cfg.ALLOWED_ORIGINS, supports_credentials=False)
     app.register_blueprint(rest_api)
+
+    # Register public apply API (isolated from HRMS auth)
+    from public_apply.routes import public_apply_bp
+    app.register_blueprint(public_apply_bp)
+
+    # Register HR public apply API (Authenticated via User Token for CV downloads)
+    from public_apply.hr_routes import hr_apply_bp
+    app.register_blueprint(hr_apply_bp)
+
+    # Create public apply tables
+    from public_apply.models import PublicApply, PublicApplyRateLimit, PublicApplyAuditLog
+    PublicApply.metadata.create_all(bind=engine)
 
     limiter = SimpleRateLimiter()
 

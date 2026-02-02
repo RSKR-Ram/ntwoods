@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Application Form</title>
+    <meta name="description" content="Apply for open positions. Submit your resume and details.">
+
+    <!-- Cloudflare Turnstile -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --error: #ef4444;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            padding: 32px;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            color: var(--text);
+            font-size: 24px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: var(--text);
+            font-weight: 500;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .required::after {
+            content: '*';
+            color: var(--error);
+            margin-left: 4px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s ease;
+            background: white;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        input:disabled,
+        select:disabled {
+            background: #f1f5f9;
+            cursor: not-allowed;
+        }
+
+        .file-input {
+            position: relative;
+        }
+
+        .file-input input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .file-label:hover {
+            border-color: var(--primary);
+            background: #f8fafc;
+        }
+
+        .file-label.has-file {
+            border-color: var(--success);
+            background: #f0fdf4;
+        }
+
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .file-text {
+            flex: 1;
+        }
+
+        .file-text .main {
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .file-text .sub {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .turnstile-container {
+            display: flex;
+            justify-content: center;
+            margin: 16px 0;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            color: var(--error);
+            border: 1px solid #fecaca;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            color: var(--success);
+            border: 1px solid #bbf7d0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--success);
+            border-radius: 50%;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+        }
+
+        .success-message {
+            text-align: center;
+        }
+
+        .success-message h2 {
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .success-message p {
+            color: var(--text-muted);
+        }
+
+        /* Honeypot - must be invisible */
+        .hp-field {
+            position: absolute;
+            left: -9999px;
+            opacity: 0;
+            height: 0;
+            width: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <!-- Alert Box -->
+            <div class="alert alert-error hidden" id="alert">
+                <span id="alert-text"></span>
+            </div>
+
+            <!-- Application Form -->
+            <div id="form-section">
+                <h1>Apply for a Job</h1>
+                <p class="subtitle">Fill in your details and upload your resume</p>
+
+                <form id="apply-form">
+                    <!-- Honeypot fields (hidden from humans, visible to bots) -->
+                    <div class="hp-field" aria-hidden="true">
+                        <label for="_hp_check">Leave this empty</label>
+                        <input type="text" id="_hp_check" name="_hp_check" tabindex="-1" autocomplete="off">
+                    </div>
+                    <input type="hidden" id="_timestamp" name="_timestamp" value="">
+
+                    <div class="form-group">
+                        <label class="required">Full Name</label>
+                        <input type="text" id="name" placeholder="Enter your full name" required maxlength="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="required">Email Address</label>
+                        <input type="email" id="email" placeholder="your.email@example.com" required maxlength="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mobile Number (Optional)</label>
+                        <input type="tel" id="mobile" placeholder="10-digit mobile number" pattern="[6-9][0-9]{9}"
+                            maxlength="10">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Position Applying For</label>
+                        <select id="position">
+                            <option value="">Select a position</option>
+                            <option value="ACC-001">Accountant</option>
+                            <option value="HR-001">HR Executive</option>
+                            <option value="SALES-001">Sales Executive</option>
+                            <option value="MKTG-001">Marketing Executive</option>
+                            <option value="ADMIN-001">Admin Executive</option>
+                            <option value="IT-001">IT Support</option>
+                            <option value="OTHER">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Experience (Years)</label>
+                        <select id="experience">
+                            <option value="">Select experience</option>
+                            <option value="0">Fresher</option>
+                            <option value="1">1 Year</option>
+                            <option value="2">2 Years</option>
+                            <option value="3">3 Years</option>
+                            <option value="4">4 Years</option>
+                            <option value="5">5+ Years</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Current Location</label>
+                        <input type="text" id="location" placeholder="City, State" maxlength="100">
+                    </div>
+
+                    <div class="form-group file-input">
+                        <label class="required">Resume / CV</label>
+                        <input type="file" id="cv" accept=".pdf,.doc,.docx" required>
+                        <div class="file-label" id="file-label">
+                            <div class="file-icon">📄</div>
+                            <div class="file-text">
+                                <div class="main" id="file-name">Choose your CV</div>
+                                <div class="sub">PDF, DOC, DOCX (max 2MB)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Turnstile CAPTCHA -->
+                    <div class="turnstile-container">
+                        <div class="cf-turnstile" data-sitekey="TURNSTILE_SITE_KEY_PLACEHOLDER"
+                            data-callback="onTurnstileSuccess"></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="btn-submit" disabled>
+                        <span>Submit Application</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Success Screen -->
+            <div id="success" class="hidden">
+                <div class="success-icon">✓</div>
+                <div class="success-message">
+                    <h2>Application Submitted!</h2>
+                    <p>Thank you for applying. Our HR team will review your application and contact you soon.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - UPDATE THIS WITH YOUR API URL
+        const API_BASE = 'https://your-api.onrender.com';
+
+        // State
+        let turnstileToken = '';
+        let formLoadTime = Date.now();
+
+        // Elements
+        const alertEl = document.getElementById('alert');
+        const alertText = document.getElementById('alert-text');
+
+        // Set form load timestamp (for timing validation)
+        document.getElementById('_timestamp').value = formLoadTime;
+
+        // Turnstile callback
+        function onTurnstileSuccess(token) {
+            turnstileToken = token;
+            document.getElementById('btn-submit').disabled = false;
+        }
+
+        // Show error
+        function showError(message) {
+            alertEl.classList.remove('hidden', 'alert-success');
+            alertEl.classList.add('alert-error');
+            alertText.textContent = message;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Show success
+        function showSuccess(message) {
+            alertEl.classList.remove('hidden', 'alert-error');
+            alertEl.classList.add('alert-success');
+            alertText.textContent = message;
+        }
+
+        // Hide alert
+        function hideAlert() {
+            alertEl.classList.add('hidden');
+        }
+
+        // Set loading state
+        function setLoading(btn, loading, text = 'Submit Application') {
+            const span = btn.querySelector('span');
+            if (loading) {
+                span.textContent = 'Please wait...';
+                btn.disabled = true;
+                if (!btn.querySelector('.spinner')) {
+                    const spinner = document.createElement('div');
+                    spinner.className = 'spinner';
+                    btn.insertBefore(spinner, span);
+                }
+            } else {
+                span.textContent = text;
+                btn.disabled = false;
+                const spinner = btn.querySelector('.spinner');
+                if (spinner) spinner.remove();
+            }
+        }
+
+        // File input display
+        document.getElementById('cv').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            const label = document.getElementById('file-label');
+            const fileName = document.getElementById('file-name');
+
+            if (file) {
+                // Validate size
+                if (file.size > 2 * 1024 * 1024) {
+                    showError('File too large. Maximum size is 2MB.');
+                    e.target.value = '';
+                    return;
+                }
+
+                // Validate type
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (!['pdf', 'doc', 'docx'].includes(ext)) {
+                    showError('Invalid file type. Please upload PDF, DOC, or DOCX.');
+                    e.target.value = '';
+                    return;
+                }
+
+                fileName.textContent = file.name;
+                label.classList.add('has-file');
+                hideAlert();
+            } else {
+                fileName.textContent = 'Choose your CV';
+                label.classList.remove('has-file');
+            }
+        });
+
+        // Form submission
+        document.getElementById('apply-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAlert();
+
+            const btn = document.getElementById('btn-submit');
+            const cv = document.getElementById('cv').files[0];
+
+            // Client-side validation
+            if (!cv) {
+                showError('Please select your CV');
+                return;
+            }
+
+            try {
+                setLoading(btn, true);
+
+                // Get position info
+                const positionSelect = document.getElementById('position');
+                const positionCode = positionSelect.value;
+                const positionTitle = positionSelect.options[positionSelect.selectedIndex]?.text || '';
+
+                // Step 1: Initialize application
+                const initRes = await fetch(`${API_BASE}/v1/apply/init`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        turnstile_token: turnstileToken,
+                        name: document.getElementById('name').value,
+                        email: document.getElementById('email').value,
+                        mobile: document.getElementById('mobile').value,
+                        job_public_code: positionCode,
+                        position_title: positionTitle,
+                        _hp_check: document.getElementById('_hp_check').value,
+                        _timestamp: formLoadTime,
+                    }),
+                });
+
+                const initData = await initRes.json();
+
+                if (!initData.success) {
+                    throw new Error(initData.error || 'Failed to submit application');
+                }
+
+                const applyId = initData.apply_id;
+
+                // Step 2: Upload CV
+                const formData = new FormData();
+                formData.append('apply_id', applyId);
+                formData.append('cv', cv);
+                formData.append('experience', document.getElementById('experience').value);
+                formData.append('location', document.getElementById('location').value);
+
+                const uploadRes = await fetch(`${API_BASE}/v1/apply/upload-cv`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const uploadData = await uploadRes.json();
+
+                if (!uploadData.success) {
+                    throw new Error(uploadData.error || 'Failed to upload CV');
+                }
+
+                // Success!
+                document.getElementById('form-section').classList.add('hidden');
+                document.getElementById('success').classList.remove('hidden');
+
+            } catch (error) {
+                showError(error.message);
+                setLoading(btn, false);
+            }
+        });
+    </script>
+</body>
+
+</html>

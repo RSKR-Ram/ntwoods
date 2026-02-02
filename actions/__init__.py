@@ -154,10 +154,14 @@ from .ats import (
 from .employee_profile import employee_docs_list, employee_duplicate_check, employee_profile_get, employee_role_change
 from .exit_workflow import (
     exit_attach_termination_letter,
+    exit_clearance_get,
+    exit_clearance_queue,
     exit_complete,
     exit_mark_absconded,
     exit_settlement_clear,
     exit_start_notice,
+    exit_task_update,
+    exit_tasks_get,
     exit_terminate_init,
 )
 from .training_tests import (
@@ -174,6 +178,15 @@ from .training_video import (
     training_check_video_completion,
 )
 from .portals import portals_for_me, portal_registry_list, portal_registry_upsert
+from .public_apply_actions import (
+    public_apply_job_tiles,
+    public_apply_list,
+    public_apply_get,
+    public_apply_approve,
+    public_apply_reject,
+    public_apply_audit_log,
+    public_apply_requirements,
+)
 
 
 Handler = Callable[[dict[str, Any], AuthContext | None, Any, Any], Any]
@@ -274,6 +287,10 @@ ACTION_HANDLERS: dict[str, Handler] = {
     "EXIT_SETTLEMENT_CLEAR": exit_settlement_clear,
     "EXIT_ATTACH_TERMINATION_LETTER": exit_attach_termination_letter,
     "EXIT_COMPLETE": exit_complete,
+    "EXIT_TASKS_GET": exit_tasks_get,
+    "EXIT_TASK_UPDATE": exit_task_update,
+    "EXIT_CLEARANCE_QUEUE": exit_clearance_queue,
+    "EXIT_CLEARANCE_GET": exit_clearance_get,
     "TRAINING_MODULES_GET": training_modules_get,
     "TRAINING_ADMIN_GET_QUESTIONS": training_admin_get_questions,
     "TRAINING_ADMIN_SAVE_QUESTIONS": training_admin_save_questions,
@@ -341,6 +358,14 @@ ACTION_HANDLERS: dict[str, Handler] = {
     "TRAINING_VIDEO_HEARTBEAT": training_video_heartbeat,
     "TRAINING_VIDEO_COMPLETE": training_video_complete,
     "TRAINING_CHECK_VIDEO_COMPLETION": training_check_video_completion,
+    # Public Apply (HR review of public applications)
+    "PUBLIC_APPLY_JOB_TILES": public_apply_job_tiles,
+    "PUBLIC_APPLY_LIST": public_apply_list,
+    "PUBLIC_APPLY_GET": public_apply_get,
+    "PUBLIC_APPLY_APPROVE": public_apply_approve,
+    "PUBLIC_APPLY_REJECT": public_apply_reject,
+    "PUBLIC_APPLY_AUDIT_LOG": public_apply_audit_log,
+    "PUBLIC_APPLY_REQUIREMENTS": public_apply_requirements,
 }
 
 

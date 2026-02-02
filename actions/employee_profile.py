@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import select
 
 from actions.helpers import append_audit
-from models import Candidate, Employee, EmployeeDoc, ExitCase, RoleHistory, Requirement
+from models import Candidate, Employee, EmployeeDoc, ExitCase, ExitTask, RoleHistory, Requirement
 from pii import decrypt_pii
 from services.identity_hash import aadhaar_dob_hash
 from utils import ApiError, AuthContext, iso_utc_now, normalize_role, parse_datetime_maybe, to_iso_utc
@@ -255,6 +255,35 @@ def _serialize_exit_case(*, employee_id: str, db) -> dict[str, Any] | None:
     }
 
 
+def _serialize_exit_tasks(*, exit_id: str, db) -> list[dict[str, Any]]:
+    eid = str(exit_id or "").strip()
+    if not eid:
+        return []
+    tasks = db.execute(select(ExitTask).where(ExitTask.exit_id == eid).order_by(ExitTask.id.asc())).scalars().all()
+    out: list[dict[str, Any]] = []
+    for t in tasks:
+        out.append(
+            {
+                "id": int(getattr(t, "id", 0) or 0),
+                "exitId": str(getattr(t, "exit_id", "") or ""),
+                "taskKey": str(getattr(t, "task_key", "") or ""),
+                "label": str(getattr(t, "label", "") or ""),
+                "department": str(getattr(t, "department", "") or ""),
+                "required": bool(getattr(t, "required", False)),
+                "status": str(getattr(t, "status", "") or ""),
+                "assignedRole": str(getattr(t, "assigned_role", "") or ""),
+                "assignedTo": str(getattr(t, "assigned_to", "") or ""),
+                "docId": str(getattr(t, "doc_id", "") or ""),
+                "note": str(getattr(t, "note", "") or ""),
+                "completedBy": str(getattr(t, "completed_by", "") or ""),
+                "completedAt": str(getattr(t, "completed_at", "") or ""),
+                "updatedAt": str(getattr(t, "updated_at", "") or ""),
+                "updatedBy": str(getattr(t, "updated_by", "") or ""),
+            }
+        )
+    return out
+
+
 def employee_profile_get(data, auth: AuthContext | None, db, cfg):
     employee_id = str((data or {}).get("employeeId") or "").strip()
     if not employee_id:
@@ -274,6 +303,7 @@ def employee_profile_get(data, auth: AuthContext | None, db, cfg):
     docs = employee_docs_list({"employeeId": employee_id}, auth, db, cfg)
     role_history = _serialize_role_history(employee_id=employee_id, emp=emp, db=db)
     exit_case = _serialize_exit_case(employee_id=employee_id, db=db)
+    exit_tasks = _serialize_exit_tasks(exit_id=(exit_case or {}).get("exitId") or "", db=db) if exit_case else []
 
     # Lightweight status badges: current role + joined/exit
     badges = {
@@ -283,7 +313,14 @@ def employee_profile_get(data, auth: AuthContext | None, db, cfg):
         "status": employee.get("status") or "",
     }
 
-    return {"employee": employee, "docs": docs, "roleHistory": role_history, "exitCase": exit_case, "badges": badges}
+    return {
+        "employee": employee,
+        "docs": docs,
+        "roleHistory": role_history,
+        "exitCase": exit_case,
+        "exitTasks": exit_tasks,
+        "badges": badges,
+    }
 
 
 def employee_role_change(data, auth: AuthContext | None, db, cfg):

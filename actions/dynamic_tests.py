@@ -15,6 +15,7 @@ from models import Candidate, CandidateTest, Permission, Requirement, Role, Sett
 from pii import decrypt_pii
 from sla import compute_sla
 from utils import ApiError, AuthContext, iso_utc_now, normalize_role, parse_roles_csv, safe_json_string
+from auth import permissions_for_role
 
 
 TEST_STATUSES = {"NOT_SELECTED", "PENDING", "SUBMITTED", "REVIEW_PENDING", "APPROVED", "REJECTED"}
@@ -397,8 +398,24 @@ def candidate_test_submit(data, auth: AuthContext | None, db, cfg):
 
     tm = _read_test_master(db, active_only=True)
     conf = tm.get(test_key)
+    if not conf:
+        raise ApiError("BAD_REQUEST", f"Unknown or inactive testKey: {test_key}")
 
-    _assert_role_in_list(auth.role, conf.get("fillRoles") or [], err_msg="Not allowed to fill this test")
+    # NOTE: scalar() already returns the value; getattr() here was a bug (TypeError).
+    assigned_uid = str(
+        db.execute(
+            select(CandidateTest.fillOwnerUserId)
+            .where(CandidateTest.candidateId == candidate_id)
+            .where(CandidateTest.testKey == test_key)
+        ).scalar()
+        or ""
+    ).strip()
+    
+    # If explicitly assigned to me, bypass role check.
+    if assigned_uid and assigned_uid == str(auth.userId or "").strip():
+        pass
+    else:
+        _assert_role_in_list(auth.role, conf.get("fillRoles") or [], err_msg="Not allowed to fill this test")
 
     row = (
         db.execute(select(CandidateTest).where(CandidateTest.candidateId == candidate_id).where(CandidateTest.testKey == test_key))
@@ -525,8 +542,8 @@ def candidate_test_review(data, auth: AuthContext | None, db, cfg):
 def candidate_test_assign(data, auth: AuthContext | None, db, cfg):
     if not auth or not auth.valid:
         raise ApiError("AUTH_INVALID", "Login required")
-    if normalize_role(auth.role) != "ADMIN":
-        raise ApiError("FORBIDDEN", "Admin only", http_status=403)
+    from auth import assert_permission
+    assert_permission(db, auth.role, "CANDIDATE_TEST_ASSIGN")
 
     candidate_id = str((data or {}).get("candidateId") or "").strip()
     test_key = _norm_test_key(str((data or {}).get("testKey") or ""))
@@ -631,7 +648,7 @@ def candidate_test_assign(data, auth: AuthContext | None, db, cfg):
             raise ApiError("BAD_REQUEST", "Assignee not found")
         if str(getattr(u, "status", "") or "").upper() != "ACTIVE":
             raise ApiError("BAD_REQUEST", "Assignee is disabled")
-        if conf:
+        if conf and normalize_role(getattr(auth, "role", "") or "") != "ADMIN":
             _assert_role_in_list(
                 getattr(u, "role", "") or "",
                 conf.get("fillRoles") or [],
@@ -751,13 +768,17 @@ def tests_queue_list(data, auth: AuthContext | None, db, cfg):
         raise ApiError("AUTH_INVALID", "Login required")
 
     role_u = normalize_role(auth.role)
+    can_assign = False
+    if mode == "FILL" and auth and auth.valid:
+        perms = permissions_for_role(db, auth.role)
+        can_assign = "CANDIDATE_TEST_ASSIGN" in set(perms.get("actionKeys") or [])
     tm = _read_test_master(db, active_only=True)
     can_pii = bool(getattr(cfg, "PII_ENC_KEY", "").strip()) and str(getattr(auth, "role", "") or "").upper() in set(getattr(cfg, "PII_VIEW_ROLES", []) or [])
     defaults = _read_test_default_fill_owners(db) if mode == "FILL" and role_u == "ADMIN" else {}
     users_by_id = {u.userId: u for u in db.execute(select(User)).scalars().all()} if defaults else {}
 
     q = select(CandidateTest).where(CandidateTest.isRequired == True)  # noqa: E712
-    if mode == "FILL" and role_u != "ADMIN":
+    if mode == "FILL" and role_u != "ADMIN" and not can_assign:
         q = q.where(CandidateTest.fillOwnerUserId == str(auth.userId or ""))
     rows = db.execute(q).scalars().all()
     items: list[dict[str, Any]] = []
@@ -775,8 +796,11 @@ def tests_queue_list(data, auth: AuthContext | None, db, cfg):
 
         st = str(r.status or "").upper().strip()
         if mode == "FILL":
-            if role_u != "ADMIN" and role_u not in fill_roles:
-                continue
+            # If strictly assigned to me, allow access regardless of role.
+            is_assigned_to_me = str(r.fillOwnerUserId or "").strip() == str(auth.userId or "").strip()
+            if not is_assigned_to_me:
+                if role_u != "ADMIN" and not can_assign and role_u not in fill_roles:
+                    continue
             if st not in {"PENDING", "REJECTED"}:
                 continue
         else:

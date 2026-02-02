@@ -1,0 +1,30 @@
+[Unit]
+Description=HRMS Celery Worker
+After=network.target redis.service
+
+[Service]
+Type=forking
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/hrms-api
+EnvironmentFile=/var/www/hrms-api/.env
+ExecStart=/var/www/hrms-api/.venv/bin/celery multi start worker \
+    -A app.tasks.celery_app \
+    --pidfile=/var/run/celery/%n.pid \
+    --logfile=/var/log/celery/%n%I.log \
+    --loglevel=INFO \
+    --concurrency=4
+ExecStop=/var/www/hrms-api/.venv/bin/celery multi stopwait worker \
+    --pidfile=/var/run/celery/%n.pid
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Create log/pid directories
+RuntimeDirectory=celery
+LogsDirectory=celery
+
+# Restart on failure
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

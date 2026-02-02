@@ -546,6 +546,39 @@ class ExitCase(Base):
     updated_by = Column(String, nullable=False, default="", index=True)
 
 
+class ExitTask(Base):
+    """
+    Enterprise exit clearance checklist items.
+
+    This enables multi-department clearance (HR/IT/Finance/Admin) before an employee
+    can be marked as EXITED.
+    """
+
+    __tablename__ = "exit_tasks"
+    __table_args__ = (UniqueConstraint("exit_id", "task_key", name="uq_exit_tasks_exit_taskkey"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    exit_id = Column(String, nullable=False, default="", index=True)
+    task_key = Column(String, nullable=False, default="", index=True)
+    label = Column(Text, nullable=False, default="")
+    department = Column(String, nullable=False, default="", index=True)  # HR/IT/FINANCE/ADMIN/...
+    required = Column(Boolean, nullable=False, default=True, index=True)
+
+    status = Column(String, nullable=False, default="PENDING", index=True)  # PENDING/DONE/NA/BLOCKED
+    assigned_role = Column(String, nullable=False, default="", index=True)  # e.g. MIS/ACCOUNTS/HR
+    assigned_to = Column(String, nullable=False, default="", index=True)  # userId (optional)
+
+    doc_id = Column(String, nullable=False, default="")  # optional EmployeeDoc reference
+    note = Column(Text, nullable=False, default="")
+    completed_by = Column(String, nullable=False, default="", index=True)
+    completed_at = Column(Text, nullable=False, default="", index=True)
+
+    created_at = Column(Text, nullable=False, default="", index=True)
+    created_by = Column(String, nullable=False, default="", index=True)
+    updated_at = Column(Text, nullable=False, default="", index=True)
+    updated_by = Column(String, nullable=False, default="", index=True)
+
+
 class TrainingModule(Base):
     __tablename__ = "training_modules"
 
