@@ -812,6 +812,7 @@ def _seed_roles_and_permissions(db):
         ("UI", "PORTAL_TESTS", "HR,EA,ADMIN,ACCOUNTS,MIS,DEO", True),
         ("UI", "PORTAL_ADMIN_SLA", "ADMIN", True),
         ("UI", "BTN_SHORTLIST_OWNER_SEND", "HR,ADMIN", True),
+        ("UI", "BTN_SHORTLIST_HR_APPROVE_WALKIN", "HR,ADMIN", True),
         ("UI", "BTN_OWNER_APPROVE_WALKIN", "OWNER,ADMIN", True),
         ("UI", "SECTION_EXCEL_MARKS", "ADMIN", True),
     ]

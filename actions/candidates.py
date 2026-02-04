@@ -504,6 +504,27 @@ def shortlist_decide(data, auth: AuthContext | None, db, cfg):
         )
         return {"ok": True, "status": "HOLD"}
 
+    if decision == "HR_APPROVE_WALKIN":
+        transition_candidate_status(
+            db,
+            candidate_id=candidate_id,
+            requirement_id=requirement_id,
+            to_status="WALKIN_PENDING",
+            action="HR_APPROVE_WALKIN",
+            stage_tag="HR_APPROVE_WALKIN",
+            auth=auth,
+            remark="",
+            patch={
+                "holdUntil": "",
+                "walkinAt": "",
+                "walkinNotes": "",
+                "notPickCount": 0,
+                "preCallAt": "",
+            },
+            require_from={"NEW"},
+        )
+        return {"ok": True, "status": "WALKIN_PENDING"}
+
     if decision == "OWNER_SEND":
         transition_candidate_status(
             db,
